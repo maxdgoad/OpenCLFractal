@@ -101,30 +101,24 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType)
 	// Find a device that supports double precision arithmetic
 	int* possibleDevs = new int[numDevices];
 	int nPossibleDevs = 0;
-	std::cout << "\nLooking for a device that supports double precision...\n";
 	for (int idx=0 ; idx<numDevices ; idx++)
 	{
 		size_t extLength;
 		clGetDeviceInfo(devices[idx], CL_DEVICE_EXTENSIONS, 0, nullptr, &extLength);
 		char* extString = new char[extLength+1];
 		clGetDeviceInfo(devices[idx], CL_DEVICE_EXTENSIONS, extLength+1, extString, nullptr);
-		const char* fp64 = strstr(extString, "cl_khr_fp64");
-		if (fp64 != nullptr) // this device supports double precision
-			possibleDevs[nPossibleDevs++] = idx;
+		
+		possibleDevs[nPossibleDevs++] = idx;
 		delete [] extString;
 	}
-	if (nPossibleDevs == 0)
-	{
-		std::cerr << "\nNo device supports double precision.\n";
-		return -1;
-	}
+	
 	size_t nameLength;
 	for (int i=0 ; i<nPossibleDevs ; i++)
 	{
 		clGetDeviceInfo(devices[possibleDevs[i]], CL_DEVICE_NAME, 0, nullptr, &nameLength);
 		char* name = new char[nameLength+1];
 		clGetDeviceInfo(devices[possibleDevs[i]], CL_DEVICE_NAME, nameLength+1, name, nullptr);
-		std::cout << "Device " << i << ": [" << name << "] supports double precision.\n";
+		std::cout << "Device " << i << ": [" << name << "] found.\n";
 		delete [] name;
 	}
 	if (nPossibleDevs == 1)
@@ -143,7 +137,7 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType)
 	return possibleDevs[devIndex];
 }
 
-void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, Color* output, size_t N)
+void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, unsigned char* output, size_t N)
 {
 	//------------------------------------------------------------------------
 	// Create a context for some or all of the devices on the platform
@@ -166,8 +160,8 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, Color* outpu
 	// Create device buffers associated with the context
 	//----------------------------------------------------------
 
-	size_t inputDatasize = sizeof(Complex) * N;
-	size_t outputDatasize = sizeof(Color) * N;
+	size_t inputDatasize = sizeof(Complex) *this->N;
+	size_t outputDatasize = sizeof(unsigned char*) *this->N*3;
     
 
 	cl_mem d_Q = clCreateBuffer( // Input array on the device
@@ -185,7 +179,7 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, Color* outpu
 
 	status = clEnqueueWriteBuffer(cmdQueue, 
 		d_Q, CL_FALSE, 0, inputDatasize,                         
-		&input, 0, nullptr, nullptr);
+		input, 0, nullptr, nullptr);
 	checkStatus("clEnqueueWriteBuffer-Q", status, true);
 
 
@@ -193,12 +187,13 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, Color* outpu
 	// Create, compile, and link the program
 	//----------------------------------------------------- 
 
-	const char* programSource[] = { readSource("fractal.cl") };
+	const char* programSource[] = { readSource("fractal.cl")};
 	cl_program program = clCreateProgramWithSource(context, 
 		1, programSource, nullptr, &status);
 	checkStatus("clCreateProgramWithSource", status, true);
+	const char options[] = "-I Complex.h";
 
-	status = clBuildProgram(program, 1, &dev, nullptr, nullptr, nullptr);
+	status = clBuildProgram(program, 1, &dev, options, nullptr, nullptr);
 	if (status != 0)
 		showProgramBuildLog(program, dev);
 	checkStatus("clBuildProgram", status, true);
@@ -215,7 +210,6 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, Color* outpu
 
 	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_Q);
 	checkStatus("clSetKernelArg-Q", status, true);
-
 	status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_C);
 	checkStatus("clSetKernelArg-C", status, true);
 	status = clSetKernelArg(kernel, 3, sizeof(int), &N);
@@ -318,6 +312,23 @@ const char* CLWrapper::readSource(const char* kernelPath)
    source[size] = '\0';
 
    return source;
+}
+
+unsigned char* CLWrapper::makeFractal(int nRows, int nCols, int realMax, int realMin, int imagMax, int imagMin, int MaxIterations, int MaxLengthSquared)
+{
+	Complex* points = new Complex[nRows*nCols];
+	unsigned char* colors = new unsigned char[nRows*nCols*3];
+
+	for (int row=0 ; row < nRows ; row++)
+		for (int col=0 ; col<nCols ; col++)
+		{
+			points[row*nRows + col] = Complex(realMin + ((float)col/(float)(nCols-1))*(realMax - realMin) , imagMin + ((float)row/(float)(nRows-1))*(imagMax - imagMin));
+		}
+	N = nRows*nCols;
+	doTheKernelLaunch(devices[devIndex], points, colors, nRows*nCols);
+
+	delete [] points;
+	return colors;
 }
 
 

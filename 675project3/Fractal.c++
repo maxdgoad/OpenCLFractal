@@ -119,14 +119,21 @@ int main(int argc, char* argv[])
         wrapper.N = nRows * nCols;
         wrapper.devIndex = wrapper.typicalOpenCLProlog(wrapper.devType); //🙈🙈🙈🙈🙈🙈🙈
 
-    
+
 		int numChannels = 3; // R, G, B
 		ImageWriter* iw = ImageWriter::create(argv[3], nCols, nRows, numChannels);
 		if (iw == nullptr)
 			exit(1);
 
+        unsigned char* image;
 		// We would launch a GPU kernel to get the data to be written; let's just
-		// use a placeholder here:
+        // use a placeholder here:
+        if (wrapper.devIndex >= 0)
+        {
+            //unsigned char* image = do_MatrixMultiply(devices[devIndex], N);
+            image = wrapper.makeFractal(nRows, nCols, realMax,  realMin,  imagMax,  imagMin,  MaxIterations,  MaxLengthSquared);
+        }
+        /*
 		unsigned char* image = new unsigned char[nRows * nCols * numChannels];
 		for (int r=0 ; r<nRows ; r++)
 		{
@@ -143,7 +150,8 @@ int main(int argc, char* argv[])
 					image[loc] = pixelVal;
 				}
 			}
-		}
+        }
+        */
 
 		iw->writeImage(image);
 		iw->closeImageFile();

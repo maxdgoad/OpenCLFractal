@@ -1,5 +1,7 @@
+#include "Complex.h"
+
 __kernel
-Color computeColor(__global Complex R, __global Complex J, __global int MaxIterations, __global float MaxLengthSquared)
+void computeColor(__global Complex* Q, __global unsigned char* C, int N)
 {
     /*
 	// Get the work-item's unique ID
@@ -10,7 +12,21 @@ Color computeColor(__global Complex R, __global Complex J, __global int MaxItera
 	C[2*idx] = cos(A[idx]);
 	C[2*idx+1] = sin(B[idx]);
     */
-    Color c;
+
+    int MaxIterations = 1000; // just set these here for now
+    int MaxLengthSquared = 4;
+
+    // Get the work-item's unique ID
+	int col = get_global_id(0);
+	int row = get_global_id(1);
+	//if ((row < N) && (col < N))
+	//{
+		
+		C[row*N + col] = static_cast<unsigned char>(.3*255.0 + 0.5);;
+	//}
+
+
+    /*
 
     int rep;
     for(rep = 0; rep < MaxIterations; rep++)
@@ -28,4 +44,5 @@ Color computeColor(__global Complex R, __global Complex J, __global int MaxItera
         c = (1.0 - f)*COLOR_2 + f*COLOR_3;
     }
     return color;
+    */
 }
