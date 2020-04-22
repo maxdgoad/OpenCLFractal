@@ -63,8 +63,8 @@ public:
     void checkStatus(std::string where, cl_int status, bool abortOnError);
     void reportPlatformInformation(const cl_platform_id& platformIn);
 
-    void doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t N);
-    const char* readSource(const char* fileName);
+    void doTheKernelLaunch(cl_device_id dev, Complex* input, Color* output, size_t N);
+    const char* readSource(const char* kernelPath);
     void showProgramBuildLog(cl_program pgm, cl_device_id dev);
 
 };

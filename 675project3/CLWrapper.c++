@@ -143,7 +143,7 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType)
 	return possibleDevs[devIndex];
 }
 
-void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t N)
+void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, Color* output, size_t N)
 {
 	//------------------------------------------------------------------------
 	// Create a context for some or all of the devices on the platform
@@ -166,19 +166,16 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t
 	// Create device buffers associated with the context
 	//----------------------------------------------------------
 
-    size_t datasize = sizeof(Complex);
-    size_t colorsize = sizeof(Color);
+	size_t inputDatasize = sizeof(Complex) * N;
+	size_t outputDatasize = sizeof(Color) * N;
+    
 
 	cl_mem d_Q = clCreateBuffer( // Input array on the device
-		context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
+		context, CL_MEM_READ_ONLY, inputDatasize, nullptr, &status);
 	checkStatus("clCreateBuffer-Q", status, true);
 
-	cl_mem d_J = clCreateBuffer( // Input array on the device
-		context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
-	checkStatus("clCreateBuffer-J", status, true);
-
 	cl_mem d_C = clCreateBuffer( // Output complex on the device
-		context, CL_MEM_WRITE_ONLY, datasize, nullptr, &status);
+		context, CL_MEM_WRITE_ONLY, outputDatasize, nullptr, &status);
 	checkStatus("clCreateBuffer-C", status, true);
 
 	//-----------------------------------------------------
@@ -187,14 +184,10 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t
 	//----------------------------------------------------- 
 
 	status = clEnqueueWriteBuffer(cmdQueue, 
-		d_Q, CL_FALSE, 0, datasize,                         
-		&Q, 0, nullptr, nullptr);
+		d_Q, CL_FALSE, 0, inputDatasize,                         
+		&input, 0, nullptr, nullptr);
 	checkStatus("clEnqueueWriteBuffer-Q", status, true);
 
-	status = clEnqueueWriteBuffer(cmdQueue, 
-		d_J, CL_FALSE, 0, datasize,                                  
-		&J, 0, nullptr, nullptr);
-	checkStatus("clEnqueueWriteBuffer-J", status, true);
 
 	//-----------------------------------------------------
 	// Create, compile, and link the program
@@ -222,8 +215,7 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t
 
 	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_Q);
 	checkStatus("clSetKernelArg-Q", status, true);
-	status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_J);
-	checkStatus("clSetKernelArg-J", status, true);
+
 	status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_C);
 	checkStatus("clSetKernelArg-C", status, true);
 	status = clSetKernelArg(kernel, 3, sizeof(int), &N);
@@ -260,8 +252,8 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t
 	//----------------------------------------------------- 
 
 	clEnqueueReadBuffer(cmdQueue, 
-		d_C, CL_TRUE, 0, datasize, 
-		C, 0, nullptr, nullptr);
+		d_C, CL_TRUE, 0, outputDatasize, 
+		output, 0, nullptr, nullptr);
 
 	//-----------------------------------------------------
 	// Release OpenCL resources
@@ -272,7 +264,6 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex Q, Complex J, size_t
 	clReleaseProgram(program);
 	clReleaseCommandQueue(cmdQueue);
 	clReleaseMemObject(d_Q);
-	clReleaseMemObject(d_J);
 	clReleaseMemObject(d_C);
 	clReleaseContext(context);
 
@@ -291,9 +282,42 @@ void CLWrapper::showProgramBuildLog(cl_program pgm, cl_device_id dev)
 	delete [] log;
 }
 
-const char* readSource(const char* fileName)
+const char* CLWrapper::readSource(const char* kernelPath)
 {
-    return fileName;
+   printf("Program file is: %s\n", kernelPath);
+
+   FILE* fp = fopen(kernelPath, "rb");
+   if(!fp)
+   {
+      printf("Could not open kernel file\n");
+      exit(-1);
+   }
+   int status = fseek(fp, 0, SEEK_END);
+   if(status != 0)
+   {
+      printf("Error seeking to end of file\n");
+      exit(-1);
+   }
+   long int size = ftell(fp);
+   if(size < 0)
+   {
+      printf("Error getting file position\n");
+      exit(-1);
+   }
+
+   rewind(fp);
+
+   char* source = new char[size + 1];
+
+   for (int i = 0; i < size+1; i++)
+   {
+      source[i]='\0';
+   }
+
+   fread(source, 1, size, fp);
+   source[size] = '\0';
+
+   return source;
 }
 
 
