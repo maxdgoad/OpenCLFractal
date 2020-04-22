@@ -1,0 +1,23 @@
+//my opencl wrapper class
+//this will handle lots of the cpu side opencl functions and variables that i need
+//without making the Fractal.c++ file too messy (as if it won't already be very messy)
+
+
+class CLWrapper
+{
+
+private:
+
+    cl_uint numPlatforms = 0;
+    cl_platform_id* platforms = nullptr;
+    cl_platform_id curPlatform;
+    // 2) Devices
+    cl_uint numDevices = 0;
+    cl_device_id* devices = nullptr;
+
+
+public:
+
+
+};
+
