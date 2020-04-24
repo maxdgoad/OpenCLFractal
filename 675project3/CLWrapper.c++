@@ -137,7 +137,7 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType)
 	return possibleDevs[devIndex];
 }
 
-void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, unsigned char* output, size_t N)
+void CLWrapper::doTheKernelLaunch(cl_device_id dev, float* input, unsigned char* output, size_t N)
 {
 	//------------------------------------------------------------------------
 	// Create a context for some or all of the devices on the platform
@@ -160,7 +160,7 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, unsigned cha
 	// Create device buffers associated with the context
 	//----------------------------------------------------------
 
-	size_t inputDatasize = sizeof(Complex) *this->N;
+	size_t inputDatasize = sizeof(float) *this->N*2;
 	size_t outputDatasize = sizeof(unsigned char*) *this->N*3;
     
 
@@ -191,9 +191,10 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, Complex* input, unsigned cha
 	cl_program program = clCreateProgramWithSource(context, 
 		1, programSource, nullptr, &status);
 	checkStatus("clCreateProgramWithSource", status, true);
-	const char options[] = "-I Complex.h";
+	
+	//const char options[] = "-I Complex.h";
 
-	status = clBuildProgram(program, 1, &dev, options, nullptr, nullptr);
+	status = clBuildProgram(program, 1, &dev, nullptr, nullptr, nullptr);
 	if (status != 0)
 		showProgramBuildLog(program, dev);
 	checkStatus("clBuildProgram", status, true);
@@ -316,13 +317,14 @@ const char* CLWrapper::readSource(const char* kernelPath)
 
 unsigned char* CLWrapper::makeFractal(int nRows, int nCols, int realMax, int realMin, int imagMax, int imagMin, int MaxIterations, int MaxLengthSquared)
 {
-	Complex* points = new Complex[nRows*nCols];
+	float* points = new float[nRows*nCols*2];
 	unsigned char* colors = new unsigned char[nRows*nCols*3];
 
 	for (int row=0 ; row < nRows ; row++)
-		for (int col=0 ; col<nCols ; col++)
+		for (int col=0 ; col<nCols*2 ; col+=2)
 		{
-			points[row*nRows + col] = Complex(realMin + ((float)col/(float)(nCols-1))*(realMax - realMin) , imagMin + ((float)row/(float)(nRows-1))*(imagMax - imagMin));
+			points[row*nRows + col] = realMin + ((float)col/(float)(nCols-1))*(realMax - realMin);
+			points[row*nRows + col+1] = imagMin + ((float)row/(float)(nRows-1))*(imagMax - imagMin);
 		}
 	N = nRows*nCols;
 	doTheKernelLaunch(devices[devIndex], points, colors, nRows*nCols);
