@@ -129,114 +129,127 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType) {
   return possibleDevs[devIndex];
 }
 
-void CLWrapper::doTheKernelLaunch(cl_device_id dev, float* R, float* Ri,
-                                  cl_float3 *output, size_t N, int nRows, int nCols) {
+void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
+                                  cl_float3 *output, size_t N, int nRows,
+                                  int nCols, int MaxIterations,
+                                  int MaxLengthSquared, float juliaReal,
+                                  float juliaImag, bool isJulia) {
+                              
   //------------------------------------------------------------------------
-	// Create a context for some or all of the devices on the platform
-	// (Here we are including all devices.)
-	//------------------------------------------------------------------------
+  // Create a context for some or all of the devices on the platform
+  // (Here we are including all devices.)
+  //------------------------------------------------------------------------
 
-	cl_int status;
-	cl_context context = clCreateContext(nullptr, 1, &dev, nullptr, nullptr, &status);
-	checkStatus("clCreateContext", status, true);
+  cl_int status;
+  cl_context context =
+      clCreateContext(nullptr, 1, &dev, nullptr, nullptr, &status);
+  checkStatus("clCreateContext", status, true);
 
-	//-------------------------------------------------------------
-	// Create a command queue for one device in the context
-	// (There is one queue per device per context.)
-	//-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // Create a command queue for one device in the context
+  // (There is one queue per device per context.)
+  //-------------------------------------------------------------
 
-	cl_command_queue cmdQueue = clCreateCommandQueue(context, dev, 0, &status);
-	checkStatus("clCreateCommandQueue", status, true);
+  cl_command_queue cmdQueue = clCreateCommandQueue(context, dev, 0, &status);
+  checkStatus("clCreateCommandQueue", status, true);
 
-	//----------------------------------------------------------
-	// Create device buffers associated with the context
-	//----------------------------------------------------------
+  //----------------------------------------------------------
+  // Create device buffers associated with the context
+  //----------------------------------------------------------
 
   size_t datasize = N * sizeof(float);
   size_t outputsize = N * sizeof(cl_float3);
 
-	cl_mem d_R = clCreateBuffer( // Input array on the device
-		context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
+  cl_mem d_R = clCreateBuffer( // Input array on the device
+      context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
   checkStatus("clCreateBuffer-R", status, true);
 
   cl_mem d_Ri = clCreateBuffer( // Input array on the device
-		context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
+      context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
   checkStatus("clCreateBuffer-Ri", status, true);
-  
 
-	cl_mem d_C = clCreateBuffer( // Output array on the device
-		context, CL_MEM_WRITE_ONLY, outputsize, nullptr, &status);
-	checkStatus("clCreateBuffer-C", status, true);
+  cl_mem d_C = clCreateBuffer( // Output array on the device
+      context, CL_MEM_WRITE_ONLY, outputsize, nullptr, &status);
+  checkStatus("clCreateBuffer-C", status, true);
 
-	//-----------------------------------------------------
-	// Use the command queue to encode requests to
-	//         write host data to the device buffers
-	//----------------------------------------------------- 
+  //-----------------------------------------------------
+  // Use the command queue to encode requests to
+  //         write host data to the device buffers
+  //-----------------------------------------------------
 
-	status = clEnqueueWriteBuffer(cmdQueue, 
-		d_R, CL_FALSE, 0, datasize,                         
-		R, 0, nullptr, nullptr);
+  status = clEnqueueWriteBuffer(cmdQueue, d_R, CL_FALSE, 0, datasize, R, 0,
+                                nullptr, nullptr);
   checkStatus("clEnqueueWriteBuffer-R", status, true);
 
-  status = clEnqueueWriteBuffer(cmdQueue, 
-		d_Ri, CL_FALSE, 0, datasize,                         
-		Ri, 0, nullptr, nullptr);
+  status = clEnqueueWriteBuffer(cmdQueue, d_Ri, CL_FALSE, 0, datasize, Ri, 0,
+                                nullptr, nullptr);
   checkStatus("clEnqueueWriteBuffer-Ri", status, true);
-  
 
-	//-----------------------------------------------------
-	// Create, compile, and link the program
-	//----------------------------------------------------- 
+  //-----------------------------------------------------
+  // Create, compile, and link the program
+  //-----------------------------------------------------
 
-	const char* programSource[] = { readSource("fractal.cl") };
-	cl_program program = clCreateProgramWithSource(context, 
-		1, programSource, nullptr, &status);
-	checkStatus("clCreateProgramWithSource", status, true);
+  const char *programSource[] = {readSource("fractal.cl")};
+  cl_program program =
+      clCreateProgramWithSource(context, 1, programSource, nullptr, &status);
+  checkStatus("clCreateProgramWithSource", status, true);
 
-	status = clBuildProgram(program, 1, &dev, nullptr, nullptr, nullptr);
-	if (status != 0)
-		showProgramBuildLog(program, dev);
-	checkStatus("clBuildProgram", status, true);
+  status = clBuildProgram(program, 1, &dev, nullptr, nullptr, nullptr);
+  if (status != 0)
+    showProgramBuildLog(program, dev);
+  checkStatus("clBuildProgram", status, true);
 
-	//----------------------------------------------------------------------
-	// Create a kernel using a "__kernel" function in the ".cl" file
-	//----------------------------------------------------------------------
+  //----------------------------------------------------------------------
+  // Create a kernel using a "__kernel" function in the ".cl" file
+  //----------------------------------------------------------------------
 
-	cl_kernel kernel = clCreateKernel(program, "computeColor", &status);
+  cl_kernel kernel = clCreateKernel(program, "computeColor", &status);
 
-	//-----------------------------------------------------
-	// Set the kernel arguments
-	//----------------------------------------------------- 
+  //-----------------------------------------------------
+  // Set the kernel arguments
+  //-----------------------------------------------------
 
-	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_R);
+  int julia = 0;
+  if(isJulia)
+    julia = 1;
+
+  status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_R);
   checkStatus("clSetKernelArg-R", status, true);
   status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_Ri);
   checkStatus("clSetKernelArg-Ri", status, true);
-	status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_C);
-	checkStatus("clSetKernelArg-C", status, true);
-	status = clSetKernelArg(kernel, 3, sizeof(int), &N);
+  status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_C);
+  checkStatus("clSetKernelArg-C", status, true);
+  status = clSetKernelArg(kernel, 3, sizeof(int), &N);
   checkStatus("clSetKernelArg-N", status, true);
   status = clSetKernelArg(kernel, 4, sizeof(int), &nRows);
-  checkStatus("clSetKernelArg-N", status, true);
+  checkStatus("clSetKernelArg-rows", status, true);
   status = clSetKernelArg(kernel, 5, sizeof(int), &nCols);
-	checkStatus("clSetKernelArg-N", status, true);
+  checkStatus("clSetKernelArg-cols", status, true);
+  status = clSetKernelArg(kernel, 6, sizeof(int), &MaxIterations);
+  checkStatus("clSetKernelArg-it", status, true);
+  status = clSetKernelArg(kernel, 7, sizeof(int), &MaxLengthSquared);
+  checkStatus("clSetKernelArg-length", status, true);
+  status = clSetKernelArg(kernel, 8, sizeof(float), &juliaReal);
+  checkStatus("clSetKernelArg-juliareal", status, true);
+  status = clSetKernelArg(kernel, 9, sizeof(float), &juliaImag);
+  checkStatus("clSetKernelArg-juliaimag", status, true);
+  status = clSetKernelArg(kernel, 10, sizeof(int), &julia);
+  checkStatus("clSetKernelArg-juliaimag", status, true);
 
-	//-----------------------------------------------------
-	// Configure the work-item structure
-	//----------------------------------------------------- 
 
-  
-	size_t localWorkSize[] = { 16, 16 };
-	size_t globalWorkSize[2];
-	// Global work size needs to be at least NxN, but it must
-	// also be a multiple of local size in each dimension:
-	for (int d=0 ; d<2 ; d++)
-	{
-		globalWorkSize[d] = nCols;
-		if (globalWorkSize[d]%localWorkSize[d] != 0)
-			globalWorkSize[d] = ((nCols / localWorkSize[d]) + 1) * localWorkSize[d];
+  //-----------------------------------------------------
+  // Configure the work-item structure
+  //-----------------------------------------------------
+
+  size_t localWorkSize[] = {16, 16};
+  size_t globalWorkSize[2];
+  // Global work size needs to be at least NxN, but it must
+  // also be a multiple of local size in each dimension:
+  for (int d = 0; d < 2; d++) {
+    globalWorkSize[d] = nCols;
+    if (globalWorkSize[d] % localWorkSize[d] != 0)
+      globalWorkSize[d] = ((nCols / localWorkSize[d]) + 1) * localWorkSize[d];
   }
-  
 
   /*
  size_t globalWorkSize[] = { N };
@@ -244,41 +257,40 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float* R, float* Ri,
  size_t* localWorkSize = nullptr; // ==> OpenCL runtime will pick sizes
  */
 
-	//-----------------------------------------------------
-	// Enqueue the kernel for execution
-	//----------------------------------------------------- 
+  //-----------------------------------------------------
+  // Enqueue the kernel for execution
+  //-----------------------------------------------------
 
-	status = clEnqueueNDRangeKernel(cmdQueue, kernel,
-		2, // number dimensions in grid
-		nullptr, globalWorkSize, // globalOffset, globalSize
-		localWorkSize,
-		0, nullptr, nullptr); // event information, if needed
-	checkStatus("clEnqueueNDRangeKernel", status, true);
+  status = clEnqueueNDRangeKernel(
+      cmdQueue, kernel,
+      2,                                   // number dimensions in grid
+      nullptr, globalWorkSize,             // globalOffset, globalSize
+      localWorkSize, 0, nullptr, nullptr); // event information, if needed
+  checkStatus("clEnqueueNDRangeKernel", status, true);
 
-	//-----------------------------------------------------
-	// Read the output buffer back to the host
-	//----------------------------------------------------- 
+  //-----------------------------------------------------
+  // Read the output buffer back to the host
+  //-----------------------------------------------------
 
-	clEnqueueReadBuffer(cmdQueue, 
-		d_C, CL_TRUE, 0, outputsize, 
-		output, 0, nullptr, nullptr);
+  clEnqueueReadBuffer(cmdQueue, d_C, CL_TRUE, 0, outputsize, output, 0, nullptr,
+                      nullptr);
 
-	//-----------------------------------------------------
-	// Release OpenCL resources
-	//----------------------------------------------------- 
+  //-----------------------------------------------------
+  // Release OpenCL resources
+  //-----------------------------------------------------
 
-	// Free OpenCL resources
-	clReleaseKernel(kernel);
-	clReleaseProgram(program);
-	clReleaseCommandQueue(cmdQueue);
+  // Free OpenCL resources
+  clReleaseKernel(kernel);
+  clReleaseProgram(program);
+  clReleaseCommandQueue(cmdQueue);
   clReleaseMemObject(d_R);
   clReleaseMemObject(d_Ri);
-	clReleaseMemObject(d_C);
-	clReleaseContext(context);
+  clReleaseMemObject(d_C);
+  clReleaseContext(context);
 
-	// Free host resources
-	delete [] platforms;
-	delete [] devices;
+  // Free host resources
+  delete[] platforms;
+  delete[] devices;
 }
 
 void CLWrapper::showProgramBuildLog(cl_program pgm, cl_device_id dev) {
@@ -324,33 +336,27 @@ const char *CLWrapper::readSource(const char *kernelPath) {
 }
 
 cl_float3 *CLWrapper::makeFractal(int nRows, int nCols, float realMax,
-                                      float realMin, float imagMax, float imagMin,
-                                      int MaxIterations, int MaxLengthSquared) {
+                                  float realMin, float imagMax, float imagMin,
+                                  int MaxIterations, int MaxLengthSquared,
+                                  float juliaReal, float juliaImag, bool isJulia) {
 
   N = nRows * nCols;
 
-  float* R  = new float[N];
-  float* Ri = new float[N];
+  float *R = new float[N];
+  float *Ri = new float[N];
   cl_float3 *colors = new cl_float3[N];
-
-  imagMin = -1.0 * 1.25;
-  imagMax = 1.25;
-
-  std::cout << realMax << " " << realMin << " " << imagMax << " " << imagMin; 
-
-  
-
 
   for (int row = 0; row < nRows; row++)
     for (int col = 0; col < nCols; col++) {
-      R[row*nCols + col] = realMin + ((float)col / (float)(nCols - 1)) * (realMax - realMin);
-      Ri[row*nCols + col] =  imagMin + ((float)row/(float)(nRows-1))*(imagMax - imagMin);
-      colors[row*nCols + col] = {0.0, 0.0, 0.0};
+      R[row * nCols + col] =
+          realMin + ((float)col / (float)(nCols - 1)) * (realMax - realMin);
+      Ri[row * nCols + col] =
+          imagMin + ((float)row / (float)(nRows - 1)) * (imagMax - imagMin);
+      colors[row * nCols + col] = {0.0, 0.0, 0.0};
     }
 
-  doTheKernelLaunch(devices[devIndex], R, Ri, colors, N, nRows, nCols);
-
-
+  doTheKernelLaunch(devices[devIndex], R, Ri, colors, N, nRows, nCols,
+                    MaxIterations, MaxLengthSquared, juliaReal, juliaImag, isJulia);
 
   delete[] R;
   delete[] Ri;

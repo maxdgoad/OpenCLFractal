@@ -8,7 +8,6 @@ OPENCL_LIB = -framework OpenCL
 
 
 PROG = Fractal
-COMP = Complex
 WRAP = CLWrapper
 
 CPP = g++ -fPIC -std=c++11
@@ -19,18 +18,14 @@ CFLAGS = -g -c $(INC) $(CF_EXTRA)
 
 LIB = libCOGLImageWriter.so
 
-$(PROG): $(PROG).o $(COMP).o $(WRAP).o $(LIB)
-	$(LINK) -g -o $(PROG) $(PROG).o $(COMP).o $(WRAP).o $(LIB) $(OPENCL_LIB)
+$(PROG): $(PROG).o $(WRAP).o $(LIB)
+	$(LINK) -g -o $(PROG) $(PROG).o  $(WRAP).o $(LIB) $(OPENCL_LIB)
 
 libCOGLImageWriter.so: ../ImageWriter/ImageWriter.h ../ImageWriter/ImageWriter.c++
 	(cd ../ImageWriter; make)
 
 $(PROG).o: $(PROG).c++
 	$(CPP) $(CFLAGS) $(PROG).c++
-
-$(COMP).o: $(COMP).h $(COMP).c++
-	$(CPP) $(CFLAGS) $(COMP).c++
-
 $(WRAP).o: $(WRAP).h $(WRAP).c++
 	$(CPP) $(CFLAGS) $(WRAP).c++
 

@@ -1,6 +1,7 @@
-//my opencl wrapper class
-//this will handle lots of the cpu side opencl functions and variables that i need
-//without making the Fractal.c++ file too messy (as if it won't already be very messy)
+// my opencl wrapper class
+// this will handle lots of the cpu side opencl functions and variables that i
+// need without making the Fractal.c++ file too messy (as if it won't already be
+// very messy)
 
 #ifndef CLWRAPPER_H
 #define CLWRAPPER_H
@@ -12,65 +13,62 @@
 #endif
 
 #include <iostream>
-#include "Complex.h"
 
-//a simple color class
-class Color
-{
+// a simple color class
+class Color {
 private:
-    //color values between 0 and 1
-    float R;
-    float G;
-    float B;
-public:
-    Color(){}
-    Color(float R, float G,float B) : R(R), G(G), B(B) {}
-    Color operator*(float f){return Color(f*R, f*G, f*B);}
-
-};
-
-struct NameTable
-{
-	std::string name;
-	int value;
-};
-
-class CLWrapper
-{
-
-private:
-    bool debug = false;
-
+  // color values between 0 and 1
+  float R;
+  float G;
+  float B;
 
 public:
-    CLWrapper();
-    ~CLWrapper();
+  Color() {}
+  Color(float R, float G, float B) : R(R), G(G), B(B) {}
+  Color operator*(float f) { return Color(f * R, f * G, f * B); }
+};
 
-    cl_device_type devType = CL_DEVICE_TYPE_DEFAULT;
-	size_t N = 0;
+struct NameTable {
+  std::string name;
+  int value;
+};
 
-    //1) Platforms
-    cl_uint numPlatforms = 0;
-    cl_platform_id* platforms = nullptr;
-    cl_platform_id curPlatform;
-    // 2) Devices
-    cl_uint numDevices = 0;
-    cl_device_id* devices = nullptr;
+class CLWrapper {
 
-    int devIndex;
+private:
+  bool debug = false;
 
-    int typicalOpenCLProlog(cl_device_type desiredDeviceType);
-    void checkStatus(std::string where, cl_int status, bool abortOnError);
-    void reportPlatformInformation(const cl_platform_id& platformIn);
+public:
+  CLWrapper();
+  ~CLWrapper();
 
-    void doTheKernelLaunch(cl_device_id dev, float* R, float* Ri,  cl_float3* output, size_t N, int nRows, int nCols);
-    const char* readSource(const char* kernelPath);
-    void showProgramBuildLog(cl_program pgm, cl_device_id dev);
+  cl_device_type devType = CL_DEVICE_TYPE_DEFAULT;
+  size_t N = 0;
 
+  // 1) Platforms
+  cl_uint numPlatforms = 0;
+  cl_platform_id *platforms = nullptr;
+  cl_platform_id curPlatform;
+  // 2) Devices
+  cl_uint numDevices = 0;
+  cl_device_id *devices = nullptr;
 
-    cl_float3* makeFractal(int nRows, int nCols, float realMax, float realMin, float imagMax, float imagMin, int MaxIterations, int MaxLengthSquared);
+  int devIndex;
 
+  int typicalOpenCLProlog(cl_device_type desiredDeviceType);
+  void checkStatus(std::string where, cl_int status, bool abortOnError);
+  void reportPlatformInformation(const cl_platform_id &platformIn);
+
+  void doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
+                         cl_float3 *output, size_t N, int nRows, int nCols,
+                         int MaxIterations, int MaxLengthSquared, float juliaReal, float juliaImag, bool isJulia);
+  const char *readSource(const char *kernelPath);
+  void showProgramBuildLog(cl_program pgm, cl_device_id dev);
+
+  cl_float3 *makeFractal(int nRows, int nCols, float realMax, float realMin,
+                         float imagMax, float imagMin, int MaxIterations,
+                         int MaxLengthSquared, float juliaReal,
+                         float juliaImag, bool isJulia);
 };
 
 #endif
-
