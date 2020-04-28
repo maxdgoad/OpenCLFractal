@@ -63,12 +63,12 @@ public:
     void checkStatus(std::string where, cl_int status, bool abortOnError);
     void reportPlatformInformation(const cl_platform_id& platformIn);
 
-    void doTheKernelLaunch(cl_device_id dev, float* input, cl_float3* output, size_t N);
+    void doTheKernelLaunch(cl_device_id dev, float* R, float* Ri,  cl_float3* output, size_t N, int nRows, int nCols);
     const char* readSource(const char* kernelPath);
     void showProgramBuildLog(cl_program pgm, cl_device_id dev);
 
 
-    cl_float3* makeFractal(int nRows, int nCols, int realMax, int realMin, int imagMax, int imagMin, int MaxIterations, int MaxLengthSquared);
+    cl_float3* makeFractal(int nRows, int nCols, float realMax, float realMin, float imagMax, float imagMin, int MaxIterations, int MaxLengthSquared);
 
 };
 

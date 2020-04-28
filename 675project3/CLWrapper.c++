@@ -129,8 +129,8 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType) {
   return possibleDevs[devIndex];
 }
 
-void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *input,
-                                  cl_float3 *output, size_t N) {
+void CLWrapper::doTheKernelLaunch(cl_device_id dev, float* R, float* Ri,
+                                  cl_float3 *output, size_t N, int nRows, int nCols) {
   //------------------------------------------------------------------------
 	// Create a context for some or all of the devices on the platform
 	// (Here we are including all devices.)
@@ -152,12 +152,17 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *input,
 	// Create device buffers associated with the context
 	//----------------------------------------------------------
 
-  size_t datasize = N * sizeof(cl_float3);
-  size_t outputsize = N * sizeof(unsigned char);
+  size_t datasize = N * sizeof(float);
+  size_t outputsize = N * sizeof(cl_float3);
 
-	cl_mem d_A = clCreateBuffer( // Input array on the device
+	cl_mem d_R = clCreateBuffer( // Input array on the device
 		context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
-	checkStatus("clCreateBuffer-A", status, true);
+  checkStatus("clCreateBuffer-R", status, true);
+
+  cl_mem d_Ri = clCreateBuffer( // Input array on the device
+		context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
+  checkStatus("clCreateBuffer-Ri", status, true);
+  
 
 	cl_mem d_C = clCreateBuffer( // Output array on the device
 		context, CL_MEM_WRITE_ONLY, outputsize, nullptr, &status);
@@ -169,9 +174,15 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *input,
 	//----------------------------------------------------- 
 
 	status = clEnqueueWriteBuffer(cmdQueue, 
-		d_A, CL_FALSE, 0, datasize,                         
-		input, 0, nullptr, nullptr);
-	checkStatus("clEnqueueWriteBuffer-A", status, true);
+		d_R, CL_FALSE, 0, datasize,                         
+		R, 0, nullptr, nullptr);
+  checkStatus("clEnqueueWriteBuffer-R", status, true);
+
+  status = clEnqueueWriteBuffer(cmdQueue, 
+		d_Ri, CL_FALSE, 0, datasize,                         
+		Ri, 0, nullptr, nullptr);
+  checkStatus("clEnqueueWriteBuffer-Ri", status, true);
+  
 
 	//-----------------------------------------------------
 	// Create, compile, and link the program
@@ -197,27 +208,41 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *input,
 	// Set the kernel arguments
 	//----------------------------------------------------- 
 
-	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_A);
-	checkStatus("clSetKernelArg-A", status, true);
-	status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_C);
+	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_R);
+  checkStatus("clSetKernelArg-R", status, true);
+  status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_Ri);
+  checkStatus("clSetKernelArg-Ri", status, true);
+	status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &d_C);
 	checkStatus("clSetKernelArg-C", status, true);
-	status = clSetKernelArg(kernel, 2, sizeof(int), &N);
+	status = clSetKernelArg(kernel, 3, sizeof(int), &N);
+  checkStatus("clSetKernelArg-N", status, true);
+  status = clSetKernelArg(kernel, 4, sizeof(int), &nRows);
+  checkStatus("clSetKernelArg-N", status, true);
+  status = clSetKernelArg(kernel, 5, sizeof(int), &nCols);
 	checkStatus("clSetKernelArg-N", status, true);
 
 	//-----------------------------------------------------
 	// Configure the work-item structure
 	//----------------------------------------------------- 
 
+  
 	size_t localWorkSize[] = { 16, 16 };
 	size_t globalWorkSize[2];
 	// Global work size needs to be at least NxN, but it must
 	// also be a multiple of local size in each dimension:
 	for (int d=0 ; d<2 ; d++)
 	{
-		globalWorkSize[d] = N;
+		globalWorkSize[d] = nCols;
 		if (globalWorkSize[d]%localWorkSize[d] != 0)
-			globalWorkSize[d] = ((N / localWorkSize[d]) + 1) * localWorkSize[d];
-	}
+			globalWorkSize[d] = ((nCols / localWorkSize[d]) + 1) * localWorkSize[d];
+  }
+  
+
+  /*
+ size_t globalWorkSize[] = { N };
+ size_t* globalWorkOffset = nullptr; // ==> offset=0 in all dims
+ size_t* localWorkSize = nullptr; // ==> OpenCL runtime will pick sizes
+ */
 
 	//-----------------------------------------------------
 	// Enqueue the kernel for execution
@@ -235,7 +260,7 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *input,
 	//----------------------------------------------------- 
 
 	clEnqueueReadBuffer(cmdQueue, 
-		d_C, CL_TRUE, 0, datasize, 
+		d_C, CL_TRUE, 0, outputsize, 
 		output, 0, nullptr, nullptr);
 
 	//-----------------------------------------------------
@@ -246,7 +271,8 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *input,
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	clReleaseCommandQueue(cmdQueue);
-	clReleaseMemObject(d_A);
+  clReleaseMemObject(d_R);
+  clReleaseMemObject(d_Ri);
 	clReleaseMemObject(d_C);
 	clReleaseContext(context);
 
@@ -297,22 +323,36 @@ const char *CLWrapper::readSource(const char *kernelPath) {
   return source;
 }
 
-cl_float3 *CLWrapper::makeFractal(int nRows, int nCols, int realMax,
-                                      int realMin, int imagMax, int imagMin,
+cl_float3 *CLWrapper::makeFractal(int nRows, int nCols, float realMax,
+                                      float realMin, float imagMax, float imagMin,
                                       int MaxIterations, int MaxLengthSquared) {
-  float *points = new float[nRows * nCols];
-  cl_float3 *colors = new cl_float3[nRows * nCols];
+
+  N = nRows * nCols;
+
+  float* R  = new float[N];
+  float* Ri = new float[N];
+  cl_float3 *colors = new cl_float3[N];
+
+  imagMin = -1.0 * 1.25;
+  imagMax = 1.25;
+
+  std::cout << realMax << " " << realMin << " " << imagMax << " " << imagMin; 
+
+  
+
 
   for (int row = 0; row < nRows; row++)
     for (int col = 0; col < nCols; col++) {
-      points[row + col] =
-          realMin + ((float)col / (float)(nCols - 1)) * (realMax - realMin);
-      
+      R[row*nCols + col] = realMin + ((float)col / (float)(nCols - 1)) * (realMax - realMin);
+      Ri[row*nCols + col] =  imagMin + ((float)row/(float)(nRows-1))*(imagMax - imagMin);
+      colors[row*nCols + col] = {0.0, 0.0, 0.0};
     }
-  N = nRows * nCols;
-  doTheKernelLaunch(devices[devIndex], points, colors, nRows * nCols);
+
+  doTheKernelLaunch(devices[devIndex], R, Ri, colors, N, nRows, nCols);
 
 
-  delete[] points;
+
+  delete[] R;
+  delete[] Ri;
   return colors;
 }

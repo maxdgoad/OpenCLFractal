@@ -29,36 +29,57 @@ inline cl_complex cl_complex_multiply(const cl_complex* a, const cl_complex* b){
 }
 
 __kernel
-void computeColor(__global float* Q, __global __float3* C, int N)
+void computeColor(__global float* R, __global float* Ri, __global float3* C, int N, int nRows, int nCols)
 {
-    __float3 c = {1,1,1};
-    
-    /*
-
-    cl_complex X;
-    X.x = 3.0;
-    X.y = 4.0;
-    int MaxIterations = 100;
-    float MaxLengthSquared = 4.0;
-
-    int rep;
-    for(rep = 0; rep < MaxIterations; rep++)
-    {
-        if (cl_complex_lengthSquared(&X) > MaxLengthSquared)
-            break;
-    }
-    if (rep >= MaxIterations)
-        c = c;
-    else
-    {
-        float f = (float)(((float) rep)/((float)MaxIterations)); // 0 < f < 1
-        //c = (unsigned char) ((1.0 - f)*(0.4) + f*(0.9));
-    }
-    */
-
     int col = get_global_id(0);
     int row = get_global_id(1);
-    printf("%d\n", col);
-    C[col] = c;
+
+    if(col < nCols && row < nRows)
+    {
+        cl_complex R1;
+
+        R1.x = R[row*nCols + col];
+        R1.y = Ri[row*nCols + col];
+
+        cl_complex S1;
+
+        //julia set test
+        S1.x = (float) -0.765;
+        S1.y = (float) 0.11;
+
+        //mandelbrot set test
+        S1 = R1;
+
+
+        //float realS = S[row*nCols + col];
+        //float imagS = Si[row*nCols + col];
+
+        int MaxIterations = 1000;
+        float MaxLengthSquared = 4.0;
+
+        cl_complex X;
+
+        int rep;
+        for(rep = 0; rep < MaxIterations; rep++)
+        {
+            cl_complex rsquared = cl_complex_multiply(&R1, &R1);
+            X = cl_complex_add(&rsquared, &S1); // mandelbrot
+            if(cl_complex_lengthSquared(&X) > MaxLengthSquared)
+                break;
+            R1 = X;
+        }
+
+        if(rep >= MaxIterations)
+        {
+            C[row*nCols + col] = (float3){0.1, 0.1, 0.1};
+        }
+        else
+        {
+            float f = float(rep)/(float)MaxIterations; // 0 < f < 1
+            float first = (1.0 - f) + f;
+             C[row*nCols + col] = (float3) {first, f, 0};
+        }
+
+    }
     
 }

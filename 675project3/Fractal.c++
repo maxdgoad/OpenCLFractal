@@ -117,13 +117,17 @@ unsigned char* convertfloat3toimage(cl_float3 *image, int rows, int cols, int nu
         for (int c=0 ; c<cols ; c++)
         {
             int loc = r*cols*numChannels + c*numChannels;
-            unsigned char pixelVal = static_cast<unsigned char>(image[r+c].s[0] * 255.0);
-            realimage[loc] = pixelVal;
-            realimage[loc+1] = pixelVal;
-            realimage[loc+2] = pixelVal;
+
+
+            //std::cout << image[r*(cols)+c].s[0] << " "  << image[r*(cols)+c].s[1] << " " << r*cols+c<< std::endl;
+
+            realimage[loc] = static_cast<unsigned char>(image[r*(cols)+c].s[0] * 255.0 + 0.5);
+            realimage[loc+1] = static_cast<unsigned char>(image[r*(cols)+c].s[1] * 255.0 + 0.5);
+            realimage[loc+2] = static_cast<unsigned char>(image[r*(cols)+c].s[2] * 255.0 + 0.5);
             
         }
     }
+    
     return realimage;
 
 }
@@ -151,7 +155,7 @@ int main(int argc, char* argv[])
         if (wrapper.devIndex >= 0)
         {
             //unsigned char* image = do_MatrixMultiply(devices[devIndex], N);
-            image = wrapper.makeFractal(nRows, nCols, realMax,  realMin,  imagMax,  imagMin,  MaxIterations,  MaxLengthSquared);
+            image = wrapper.makeFractal(nRows, nCols, realMax, realMin, imagMax,  imagMin,  MaxIterations,  MaxLengthSquared);
         }
 
         unsigned char * realimage = convertfloat3toimage(image, nRows, nCols, numChannels);
