@@ -1,48 +1,64 @@
 //#include "Complex.h"
 
+typedef float2 cl_float_complex;
+
+typedef cl_float_complex cl_complex;
+typedef float TYPE;
+
+
+inline TYPE cl_complex_real_part(const cl_complex* n){
+	return n->x;
+}
+
+inline TYPE cl_complex_imaginary_part(const cl_complex* n){
+	return n->y;
+}
+
+
+inline TYPE cl_complex_lengthSquared(const cl_complex* n){
+	return (n->x*n->x)+(n->y*n->y);
+}
+
+
+inline cl_complex cl_complex_add(const cl_complex* a, const cl_complex* b){
+	return (cl_complex)( a->x + b->x, a->y + b->y );
+}
+
+inline cl_complex cl_complex_multiply(const cl_complex* a, const cl_complex* b){
+	return (cl_complex)(a->x*b->x - a->y*b->y,  a->x*b->y + a->y*b->x);
+}
+
 __kernel
-void computeColor(__global float* Q, __global unsigned char* C, int N)
+void computeColor(__global float* Q, __global __float3* C, int N)
 {
-    /*
-	// Get the work-item's unique ID
-	int idx = get_global_id(0);
-
-	// Add the corresponding locations of
-	//  'A' and 'B', and store the result in 'C'.
-	C[2*idx] = cos(A[idx]);
-	C[2*idx+1] = sin(B[idx]);
+    __float3 c = {1,1,1};
     
-
-    int MaxIterations = 1000; // just set these here for now
-    int MaxLengthSquared = 4;
-
-    // Get the work-item's unique ID
-	int col = get_global_id(0);
-	int row = get_global_id(1);
-	//if ((row < N) && (col < N))
-	//{
-		
-		C[row*N + col] = "3.3";
-	//}
-
-
     /*
+
+    cl_complex X;
+    X.x = 3.0;
+    X.y = 4.0;
+    int MaxIterations = 100;
+    float MaxLengthSquared = 4.0;
 
     int rep;
     for(rep = 0; rep < MaxIterations; rep++)
     {
-        Complex X = R*R + S;
-        if (X.LengthSquared() > MaxLengthSquared)
+        if (cl_complex_lengthSquared(&X) > MaxLengthSquared)
             break;
-        R = X;
     }
     if (rep >= MaxIterations)
-        c = COLOR_1;
+        c = c;
     else
     {
-        Float f = (float)(((float) rep)/((float)MaxIterations)); // 0 < f < 1
-        c = (1.0 - f)*COLOR_2 + f*COLOR_3;
+        float f = (float)(((float) rep)/((float)MaxIterations)); // 0 < f < 1
+        //c = (unsigned char) ((1.0 - f)*(0.4) + f*(0.9));
     }
-    return color;
     */
+
+    int col = get_global_id(0);
+    int row = get_global_id(1);
+    printf("%d\n", col);
+    C[col] = c;
+    
 }

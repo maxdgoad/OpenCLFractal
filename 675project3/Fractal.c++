@@ -108,6 +108,26 @@ bool readParams(std::string file)
     return false;
 }
 
+unsigned char* convertfloat3toimage(cl_float3 *image, int rows, int cols, int numChannels)
+{
+    numChannels = 3;
+    unsigned char * realimage = new unsigned char[rows*cols*numChannels];
+    for (int r=0 ; r<rows ; r++)
+    {
+        for (int c=0 ; c<cols ; c++)
+        {
+            int loc = r*cols*numChannels + c*numChannels;
+            unsigned char pixelVal = static_cast<unsigned char>(image[r+c].s[0] * 255.0);
+            realimage[loc] = pixelVal;
+            realimage[loc+1] = pixelVal;
+            realimage[loc+2] = pixelVal;
+            
+        }
+    }
+    return realimage;
+
+}
+
 int main(int argc, char* argv[])
 {
     if (argc < 4)
@@ -125,7 +145,7 @@ int main(int argc, char* argv[])
 		if (iw == nullptr)
 			exit(1);
 
-        unsigned char* image;
+        cl_float3* image;
 		// We would launch a GPU kernel to get the data to be written; let's just
         // use a placeholder here:
         if (wrapper.devIndex >= 0)
@@ -133,27 +153,11 @@ int main(int argc, char* argv[])
             //unsigned char* image = do_MatrixMultiply(devices[devIndex], N);
             image = wrapper.makeFractal(nRows, nCols, realMax,  realMin,  imagMax,  imagMin,  MaxIterations,  MaxLengthSquared);
         }
-        /*
-		unsigned char* image = new unsigned char[nRows * nCols * numChannels];
-		for (int r=0 ; r<nRows ; r++)
-		{
-			for (int c=0 ; c<nCols ; c++)
-			{
-				for (int chan=0 ; chan<numChannels ; chan++)
-				{
-					int loc = r*nCols*numChannels + c*numChannels + chan;
-					// In your GPU code, you will either have the kernel return a buffer of unsigned char,
-					// or return a float or double buffer and do the following:
-					unsigned char pixelVal = static_cast<unsigned char>(.3*255.0 + 0.5);
-					// In any event, place the unsigned char into the buffer to be written to the output
-					// image file.  It MUST be a one-byte 0..255 value.
-					image[loc] = pixelVal;
-				}
-			}
-        }
-        */
 
-		iw->writeImage(image);
+        unsigned char * realimage = convertfloat3toimage(image, nRows, nCols, numChannels);
+        
+
+		iw->writeImage(realimage);
 		iw->closeImageFile();
 		delete iw;
 		delete [] image;
