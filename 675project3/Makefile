@@ -16,12 +16,12 @@ LINK = g++ -fPIC
 INC = -I../Packed3DArray -I../ImageWriter
 CFLAGS = -g -c $(INC) $(CF_EXTRA)
 
-LIB = libCOGLImageWriter.so
+LIB = ../lib/libCOGLImageWriter.so
 
 $(PROG): $(PROG).o $(WRAP).o $(LIB)
 	$(LINK) -g -o $(PROG) $(PROG).o  $(WRAP).o $(LIB) $(OPENCL_LIB)
 
-libCOGLImageWriter.so: ../ImageWriter/ImageWriter.h ../ImageWriter/ImageWriter.c++
+../lib/libCOGLImageWriter.so: ../ImageWriter/ImageWriter.h ../ImageWriter/ImageWriter.c++
 	(cd ../ImageWriter; make)
 
 $(PROG).o: $(PROG).c++
