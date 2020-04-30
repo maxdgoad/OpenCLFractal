@@ -19,7 +19,8 @@
 #include "ImageWriter.h"
 #include <fstream>
 #include <iostream>
-#include <string>
+#include <stdio.h>
+#include <string.h>
 
 CLWrapper wrapper;
 
