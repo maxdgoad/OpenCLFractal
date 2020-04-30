@@ -30,6 +30,9 @@ $(WRAP).o: $(WRAP).h $(WRAP).c++
 	$(CPP) $(CFLAGS) $(WRAP).c++
 
 mandelbrot:
-	./$(PROG) M params.txt imageFileOut.png
+	./$(PROG) M mandelbrotparams.txt mandelbrot.png
 julia:
-	./$(PROG) J params.txt imageFileOut.png
+	./$(PROG) J juliaparams.txt julia.png
+
+clean: 
+	rm *.o Fractal

@@ -114,8 +114,7 @@ int CLWrapper::typicalOpenCLProlog(cl_device_type desiredDeviceType) {
     delete[] name;
   }
   if (nPossibleDevs == 1) {
-    std::cout << "\nNo other device in the requested device category supports "
-                 "double precision.\n"
+    std::cout << "\nNo other device in the requested device category found "
               << "You may want to try the -a command line option to see if "
                  "there are others.\n"
               << "For now, I will use the one I found.\n";
@@ -133,8 +132,10 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
                                   cl_float3 *output, size_t N, int nRows,
                                   int nCols, int MaxIterations,
                                   int MaxLengthSquared, float juliaReal,
-                                  float juliaImag, bool isJulia) {
-                              
+                                  float juliaImag, bool isJulia,
+                                  cl_float3 COLOR_1, cl_float3 COLOR_2,
+                                  cl_float3 COLOR_3) {
+
   //------------------------------------------------------------------------
   // Create a context for some or all of the devices on the platform
   // (Here we are including all devices.)
@@ -158,7 +159,8 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   //----------------------------------------------------------
 
   size_t datasize = N * sizeof(float);
-  size_t outputsize = N * sizeof(cl_float3);
+  size_t outputsize =
+      N * sizeof(cl_float3); // the cpu side version of float3 in opencl
 
   cl_mem d_R = clCreateBuffer( // Input array on the device
       context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
@@ -209,10 +211,12 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   // Set the kernel arguments
   //-----------------------------------------------------
 
+  // bool not supported in opencl?
   int julia = 0;
-  if(isJulia)
+  if (isJulia)
     julia = 1;
 
+  // lots of params
   status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &d_R);
   checkStatus("clSetKernelArg-R", status, true);
   status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_Ri);
@@ -235,7 +239,12 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   checkStatus("clSetKernelArg-juliaimag", status, true);
   status = clSetKernelArg(kernel, 10, sizeof(int), &julia);
   checkStatus("clSetKernelArg-juliaimag", status, true);
-
+  status = clSetKernelArg(kernel, 11, sizeof(cl_float3), &COLOR_1);
+  checkStatus("clSetKernelArg-color1", status, true);
+  status = clSetKernelArg(kernel, 12, sizeof(cl_float3), &COLOR_2);
+  checkStatus("clSetKernelArg-color2", status, true);
+  status = clSetKernelArg(kernel, 13, sizeof(cl_float3), &COLOR_3);
+  checkStatus("clSetKernelArg-color3", status, true);
 
   //-----------------------------------------------------
   // Configure the work-item structure
@@ -246,12 +255,14 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   // Global work size needs to be at least NxN, but it must
   // also be a multiple of local size in each dimension:
   for (int d = 0; d < 2; d++) {
-    globalWorkSize[d] = nCols;
+    globalWorkSize[d] = nCols; // assuming nCols >= nRows, but will still work
+                               // (slowly) otherwise
     if (globalWorkSize[d] % localWorkSize[d] != 0)
       globalWorkSize[d] = ((nCols / localWorkSize[d]) + 1) * localWorkSize[d];
   }
 
   /*
+  //I did find this automatic worksize code to be slower than the above code
  size_t globalWorkSize[] = { N };
  size_t* globalWorkOffset = nullptr; // ==> offset=0 in all dims
  size_t* localWorkSize = nullptr; // ==> OpenCL runtime will pick sizes
@@ -338,14 +349,17 @@ const char *CLWrapper::readSource(const char *kernelPath) {
 cl_float3 *CLWrapper::makeFractal(int nRows, int nCols, float realMax,
                                   float realMin, float imagMax, float imagMin,
                                   int MaxIterations, int MaxLengthSquared,
-                                  float juliaReal, float juliaImag, bool isJulia) {
+                                  float juliaReal, float juliaImag,
+                                  bool isJulia, cl_float3 COLOR_1,
+                                  cl_float3 COLOR_2, cl_float3 COLOR_3) {
 
-  N = nRows * nCols;
-
+  // N is row*cols
   float *R = new float[N];
   float *Ri = new float[N];
   cl_float3 *colors = new cl_float3[N];
 
+  // this converts the pixel locations to complex coordinates
+  // I am using 2 SEPARATE arrays to hold corresponding real and imaginary parts
   for (int row = 0; row < nRows; row++)
     for (int col = 0; col < nCols; col++) {
       R[row * nCols + col] =
@@ -356,7 +370,8 @@ cl_float3 *CLWrapper::makeFractal(int nRows, int nCols, float realMax,
     }
 
   doTheKernelLaunch(devices[devIndex], R, Ri, colors, N, nRows, nCols,
-                    MaxIterations, MaxLengthSquared, juliaReal, juliaImag, isJulia);
+                    MaxIterations, MaxLengthSquared, juliaReal, juliaImag,
+                    isJulia, COLOR_1, COLOR_2, COLOR_3); // lots of params
 
   delete[] R;
   delete[] Ri;

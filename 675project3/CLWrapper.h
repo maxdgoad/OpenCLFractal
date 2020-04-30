@@ -14,20 +14,6 @@
 
 #include <iostream>
 
-// a simple color class
-class Color {
-private:
-  // color values between 0 and 1
-  float R;
-  float G;
-  float B;
-
-public:
-  Color() {}
-  Color(float R, float G, float B) : R(R), G(G), B(B) {}
-  Color operator*(float f) { return Color(f * R, f * G, f * B); }
-};
-
 struct NameTable {
   std::string name;
   int value;
@@ -55,20 +41,33 @@ public:
 
   int devIndex;
 
+  // these functions are largely adapted from the code in matrixMultiplyV1.cpp
+  // on website
+  ////////////////////////////////////////////////////////////////
   int typicalOpenCLProlog(cl_device_type desiredDeviceType);
   void checkStatus(std::string where, cl_int status, bool abortOnError);
   void reportPlatformInformation(const cl_platform_id &platformIn);
 
   void doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
                          cl_float3 *output, size_t N, int nRows, int nCols,
-                         int MaxIterations, int MaxLengthSquared, float juliaReal, float juliaImag, bool isJulia);
+                         int MaxIterations, int MaxLengthSquared,
+                         float juliaReal, float juliaImag, bool isJulia,
+                         cl_float3 COLOR_1, cl_float3 COLOR_2,
+                         cl_float3 COLOR_3);
   const char *readSource(const char *kernelPath);
   void showProgramBuildLog(cl_program pgm, cl_device_id dev);
 
+  ////////////////////////////////////////////////////////////////
+
+  // this function was NOT adapted from any code on the website
+  // this would be the equivalent of the do_matrixMultiply function from
+  // matrixMultiplyV1.cpp on website inits arrays and does pixel to complex
+  // mapping
   cl_float3 *makeFractal(int nRows, int nCols, float realMax, float realMin,
                          float imagMax, float imagMin, int MaxIterations,
-                         int MaxLengthSquared, float juliaReal,
-                         float juliaImag, bool isJulia);
+                         int MaxLengthSquared, float juliaReal, float juliaImag,
+                         bool isJulia, cl_float3 COLOR_1, cl_float3 COLOR_2,
+                         cl_float3 COLOR_3);
 };
 
 #endif
