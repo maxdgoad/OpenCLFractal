@@ -12,7 +12,7 @@
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
-#include <CL/opencl.h>
+#include "../CL/opencl.h"
 #endif
 
 #include "CLWrapper.h"

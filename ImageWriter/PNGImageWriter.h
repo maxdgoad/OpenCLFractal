@@ -4,7 +4,7 @@
 #define PNGIMAGEWRITER_H
 
 #include <stdio.h>
-#include <png.h>
+#include "png.h"
 
 #include "Packed3DArray.h"
 
