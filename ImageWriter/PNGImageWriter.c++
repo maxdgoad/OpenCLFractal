@@ -41,11 +41,11 @@ PNGImageWriter::PNGImageWriter(string fName, int width, int height, int nChannel
 				 PNG_FILTER_TYPE_DEFAULT);
 	// need to flip order of the rows:
 	theImage = new cryph::Packed3DArray<unsigned char>(height, width, nChannels);
-	std::vector<unsigned char>* p = theImage->getModifiableData();
+	unsigned char* p = theImage->getModifiableData();
 	row_pointers = new png_byte*[height];
 	int rpi = height;
 	for (int i=0 ; i<height ; i++)
-		row_pointers[--rpi] = &(*p)[i*width*nChannels];
+		row_pointers[--rpi] = p + i*width*nChannels*sizeof(unsigned char);
 	png_set_rows(png_ptr, info_ptr, row_pointers);
 }
 
@@ -109,7 +109,7 @@ bool PNGImageWriter::openImageFile()
 	return true;
 }
 
-void PNGImageWriter::writeImage(std::vector<unsigned char>* fb)
+void PNGImageWriter::writeImage(const unsigned char* fb)
 {
 	if (theImage == nullptr)
 		return;
@@ -117,5 +117,5 @@ void PNGImageWriter::writeImage(std::vector<unsigned char>* fb)
 	for (int row=0 ; row<mYRes ; row++)
 		for (int col=0 ; col<mXRes ; col++)
 			for (int channel=0 ; channel<mNumChannels ; channel++)
-				theImage->setDataElement(row, col, channel, (*fb)[pos++]);
+				theImage->setDataElement(row, col, channel, fb[pos++]);
 }
