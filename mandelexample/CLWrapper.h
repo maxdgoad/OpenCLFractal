@@ -9,11 +9,10 @@
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
-#include "../CL/opencl.h"
+#include <CL/opencl.h>
 #endif
 
 #include <iostream>
-#include <vector>
 
 struct NameTable {
   std::string name;
@@ -39,7 +38,6 @@ public:
   // 2) Devices
   cl_uint numDevices = 0;
   cl_device_id *devices = nullptr;
-  cl_device_id theDevice;
 
   int devIndex;
 
@@ -65,7 +63,7 @@ public:
   // this would be the equivalent of the do_matrixMultiply function from
   // matrixMultiplyV1.cpp on website inits arrays and does pixel to complex
   // mapping
-  std::vector<unsigned char>* makeFractal(int nRows, int nCols, float realMax, float realMin,
+  cl_float3 *makeFractal(int nRows, int nCols, float realMax, float realMin,
                          float imagMax, float imagMin, int MaxIterations,
                          int MaxLengthSquared, float juliaReal, float juliaImag,
                          bool isJulia, cl_float3 COLOR_1, cl_float3 COLOR_2,

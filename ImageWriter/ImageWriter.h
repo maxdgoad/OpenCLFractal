@@ -4,7 +4,6 @@
 #define IMAGEWRITER_H
 
 #include <string>
-#include <vector>
 
 class ImageWriter
 {
@@ -29,7 +28,7 @@ public:
 	// (2) Image files can be written all at once using writeImage.
 	//     'fb' is assumed to be stored in row-major order and
 	//     indexed as fb[row][col][channel].
-	virtual void	writeImage(std::vector<unsigned char>* fb) = 0;
+	virtual void	writeImage(const unsigned char* fb) = 0;
 	// END: PRIMARY WRITING INTERFACE.
 
 	// Other methods (NOTE: Height <-> yRes; Width <-> xRes)

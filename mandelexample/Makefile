@@ -1,13 +1,11 @@
 # uncomment the following lines if running on linux
-CF_EXTRA = -Wno-deprecated-declarations
-# 32-bit
-OPENCL_LIB = "C:\Windows\System32\OpenCL.dll"
-#OPENCL_LIB = -LOpenCl
+#CF_EXTRA = -Wno-deprecated-declarations
+#OPENCL_LIB = -lOpenCL
 #uncomment the following lines if running on Mac OS
-# CF_EXTRA = -DCL_SILENCE_DEPRECATION
-# OPENCL_LIB = -framework OpenCL
+CF_EXTRA = -DCL_SILENCE_DEPRECATION
+OPENCL_LIB = -framework OpenCL
 #end: linux versus Mac OS
-HEADERS = -I"C:/Users/derek/Desktop/OpenCL-Headers-master/CL"
+
 
 PROG = Fractal
 WRAP = CLWrapper
@@ -18,12 +16,12 @@ LINK = g++ -fPIC
 INC = -I../Packed3DArray -I../ImageWriter
 CFLAGS = -g -c $(INC) $(CF_EXTRA)
 
-LIB = ../lib/libCOGLImageWriter.dll
+LIB = ../lib/libCOGLImageWriter.so
 
 $(PROG): $(PROG).o $(WRAP).o $(LIB)
-	$(LINK) $(HEADERS) -g -o $(PROG) $(PROG).o  $(WRAP).o $(LIB) $(OPENCL_LIB)
+	$(LINK) -g -o $(PROG) $(PROG).o  $(WRAP).o $(LIB) $(OPENCL_LIB)
 
-../lib/libCOGLImageWriter.dll: ../ImageWriter/ImageWriter.h ../ImageWriter/ImageWriter.c++
+../lib/libCOGLImageWriter.so: ../ImageWriter/ImageWriter.h ../ImageWriter/ImageWriter.c++
 	(cd ../ImageWriter; make)
 
 $(PROG).o: $(PROG).c++
@@ -32,7 +30,7 @@ $(WRAP).o: $(WRAP).h $(WRAP).c++
 	$(CPP) $(CFLAGS) $(WRAP).c++
 
 mandelbrot:
-	.\$(PROG) M mandelbrotparams.txt image.png
+	(export DYLD_LIBRARY_PATH=../lib; ./$(PROG) M mandelbrotparams.txt mandelbrot.png)
 julia:
 	(export DYLD_LIBRARY_PATH=../lib; ./$(PROG) J juliaparams.txt julia.png)
 
