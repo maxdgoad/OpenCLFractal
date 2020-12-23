@@ -3,12 +3,13 @@ INCLUDES = -I../Packed3DArray
 
 CFLAGS = -O -c $(INCLUDES)
 
-PNG = -llibpng
+#PNG = -llibpng
+PNG = -lpng
 
 OBJS = ImageWriter.o PNGImageWriter.o
 
 ../lib/libCOGLImageWriter.dll: libCOGLImageWriter.dll
-	cp libCOGLImageWriter.dll ../lib/
+	copy libCOGLImageWriter.dll ../lib
 
 libCOGLImageWriter.dll: $(OBJS)
 	g++ -shared -o libCOGLImageWriter.dll $(OBJS) $(PNG)

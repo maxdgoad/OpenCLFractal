@@ -142,8 +142,10 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   //------------------------------------------------------------------------
 
   cl_int status;
+  
   cl_context context =
-      clCreateContext(nullptr, 1, &dev, nullptr, nullptr, &status);
+      clCreateContext(nullptr, 1, &theDevice, nullptr, nullptr, &status);
+  //std::cout << "Device" << dev << std::endl;
   checkStatus("clCreateContext", status, true);
 
   //-------------------------------------------------------------
@@ -158,9 +160,9 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   // Create device buffers associated with the context
   //----------------------------------------------------------
 
-  size_t datasize = N * sizeof(float);
+  size_t datasize = (nCols*nRows) * sizeof(float);
   size_t outputsize =
-      N * sizeof(cl_float3); // the cpu side version of float3 in opencl
+      (nCols*nRows) * sizeof(cl_float3); // the cpu side version of float3 in opencl
 
   cl_mem d_R = clCreateBuffer( // Input array on the device
       context, CL_MEM_READ_ONLY, datasize, nullptr, &status);
@@ -249,7 +251,7 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   //-----------------------------------------------------
   // Configure the work-item structure
   //-----------------------------------------------------
-
+  
   size_t localWorkSize[] = {16, 16};
   size_t globalWorkSize[2];
   // Global work size needs to be at least NxN, but it must
@@ -261,12 +263,12 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
       globalWorkSize[d] = ((nCols / localWorkSize[d]) + 1) * localWorkSize[d];
   }
 
-  /*
-  //I did find this automatic worksize code to be slower than the above code
- size_t globalWorkSize[] = { N };
- size_t* globalWorkOffset = nullptr; // ==> offset=0 in all dims
- size_t* localWorkSize = nullptr; // ==> OpenCL runtime will pick sizes
- */
+  
+//   //I did find this automatic worksize code to be slower than the above code
+//  size_t globalWorkSize[] = { N };
+//  size_t* globalWorkOffset = nullptr; // ==> offset=0 in all dims
+//  size_t* localWorkSize = nullptr; // ==> OpenCL runtime will pick sizes
+ 
 
   //-----------------------------------------------------
   // Enqueue the kernel for execution
@@ -282,14 +284,14 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   //-----------------------------------------------------
   // Read the output buffer back to the host
   //-----------------------------------------------------
-
+  
   clEnqueueReadBuffer(cmdQueue, d_C, CL_TRUE, 0, outputsize, output, 0, nullptr,
                       nullptr);
 
   //-----------------------------------------------------
   // Release OpenCL resources
   //-----------------------------------------------------
-
+  
   // Free OpenCL resources
   clReleaseKernel(kernel);
   clReleaseProgram(program);
@@ -298,10 +300,11 @@ void CLWrapper::doTheKernelLaunch(cl_device_id dev, float *R, float *Ri,
   clReleaseMemObject(d_Ri);
   clReleaseMemObject(d_C);
   clReleaseContext(context);
-
   // Free host resources
-  delete[] platforms;
-  delete[] devices;
+  
+  //delete[] platforms;
+  //delete[] devices;
+  
 }
 
 void CLWrapper::showProgramBuildLog(cl_program pgm, cl_device_id dev) {
@@ -314,7 +317,7 @@ void CLWrapper::showProgramBuildLog(cl_program pgm, cl_device_id dev) {
 }
 
 const char *CLWrapper::readSource(const char *kernelPath) {
-  printf("Program file is: %s\n", kernelPath);
+  //printf("Program file is: %s\n", kernelPath);
 
   FILE *fp = fopen(kernelPath, "rb");
   if (!fp) {
@@ -346,34 +349,81 @@ const char *CLWrapper::readSource(const char *kernelPath) {
   return source;
 }
 
-cl_float3 *CLWrapper::makeFractal(int nRows, int nCols, float realMax,
+std::vector<unsigned char>* CLWrapper::makeFractal(int nRows, int nCols, float realMax,
                                   float realMin, float imagMax, float imagMin,
                                   int MaxIterations, int MaxLengthSquared,
                                   float juliaReal, float juliaImag,
                                   bool isJulia, cl_float3 COLOR_1,
                                   cl_float3 COLOR_2, cl_float3 COLOR_3) {
 
-  // N is row*cols
-  float *R = new float[N];
-  float *Ri = new float[N];
-  cl_float3 *colors = new cl_float3[N];
+    std::cout << " there " << std::endl;
+    std::vector<unsigned char>* finalColors = new std::vector<unsigned char>(N * 3);
+    //cl_float3 initColor = {0.0, 0.0, 0.0};
+    unsigned char initColor = static_cast<unsigned char>(0.0);
+    std::fill(finalColors->begin(), finalColors->end(), initColor);
+    std::cout << " here " << std::endl;
 
-  // this converts the pixel locations to complex coordinates
-  // I am using 2 SEPARATE arrays to hold corresponding real and imaginary parts
-  for (int row = 0; row < nRows; row++)
-    for (int col = 0; col < nCols; col++) {
-      R[row * nCols + col] =
-          realMin + ((float)col / (float)(nCols - 1)) * (realMax - realMin);
-      Ri[row * nCols + col] =
-          imagMin + ((float)row / (float)(nRows - 1)) * (imagMax - imagMin);
-      colors[row * nCols + col] = {0.0, 0.0, 0.0};
+    int colSplit = 20; // how many sub-images across columns
+    int rowSplit = 20; // how many sub-images across rows
+    size_t smallNCols = nCols/colSplit;
+    size_t smallNRows = nRows/rowSplit;
+
+    theDevice = devices[0];
+
+    // these can be used for each sub-image (dont need to be reallocated)
+    float* R = new float[smallNRows * smallNCols];
+    float* Ri = new float[smallNRows * smallNCols];
+    cl_float3 *colors = new cl_float3[smallNRows * smallNCols];
+  
+    int count = 0; // this is for offsetting the color array when copying (since it is linear)
+    for (int xSplit = 0; xSplit < rowSplit; xSplit++) {
+      for (int ySplit = 0; ySplit < colSplit; ySplit++) {
+        std::cout << (double) 100 * (xSplit*colSplit + ySplit) / (rowSplit*colSplit) << "%" << std::endl;
+        int rowmin = xSplit * smallNRows;
+        int rowmax = rowmin + smallNRows;
+        int colmin = ySplit * smallNCols;
+        int colmax = colmin + smallNCols;
+        
+        // this converts the pixel locations to complex coordinates
+        // I am using 2 SEPARATE arrays to hold corresponding real and imaginary parts
+        for (int row = rowmin; row < rowmax; row++) {
+          for (int col = colmin; col < colmax; col++) {
+            R[(row%smallNRows) * smallNCols + col%smallNCols] =
+                realMin + ((float)col / (float)(nCols - 1)) * (realMax - realMin);
+            Ri[(row%smallNRows) * smallNCols + col%smallNCols] =
+                imagMin + ((float)row / (float)(nRows - 1)) * (imagMax - imagMin);
+            //colors[(row%smallNRows) * smallNCols + col%smallNCols] = {0.0, 0.0, 0.0};
+          }
+        }
+        
+        doTheKernelLaunch(theDevice, R, Ri, colors, smallNRows * smallNCols, smallNRows, smallNCols,
+                          MaxIterations, MaxLengthSquared, juliaReal, juliaImag,
+                          isJulia, COLOR_1, COLOR_2, COLOR_3); // lots of params
+        //append temp colors to finalColors here
+        // the hard way
+
+        for (int r = rowmin; r < rowmax; r++) {
+          for (int c = colmin; c < colmax; c++) {
+            int loc = r * nCols * 3 + c * 3;
+
+            cl_float3* color = &colors[(r-rowmin) * (smallNCols) + (c-colmin)];
+
+            (*finalColors)[loc] =
+                static_cast<unsigned char>(color->s[0] * 255.0 + 0.5);
+            (*finalColors)[loc + 1] =
+                static_cast<unsigned char>(color->s[1] * 255.0 + 0.5);
+            (*finalColors)[loc + 2] =
+                static_cast<unsigned char>(color->s[2] * 255.0 + 0.5);
+          }
+        }
+        count++;
+      }
     }
-
-  doTheKernelLaunch(devices[devIndex], R, Ri, colors, N, nRows, nCols,
-                    MaxIterations, MaxLengthSquared, juliaReal, juliaImag,
-                    isJulia, COLOR_1, COLOR_2, COLOR_3); // lots of params
 
   delete[] R;
   delete[] Ri;
-  return colors;
+  delete[] colors;
+  delete[] platforms; // i think this and the next should be done on object delete actual
+  delete[] devices;   // but who cares
+  return finalColors;
 }

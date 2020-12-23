@@ -1,6 +1,8 @@
 # uncomment the following lines if running on linux
 CF_EXTRA = -Wno-deprecated-declarations
-OPENCL_LIB = C:\Windows\System32\OpenCL.dll
+# 32-bit
+OPENCL_LIB = "C:\Windows\System32\OpenCL.dll"
+#OPENCL_LIB = -LOpenCl
 #uncomment the following lines if running on Mac OS
 # CF_EXTRA = -DCL_SILENCE_DEPRECATION
 # OPENCL_LIB = -framework OpenCL
@@ -30,7 +32,7 @@ $(WRAP).o: $(WRAP).h $(WRAP).c++
 	$(CPP) $(CFLAGS) $(WRAP).c++
 
 mandelbrot:
-	(export DYLD_LIBRARY_PATH=../lib; ./$(PROG) M mandelbrotparams.txt mandelbrot.png)
+	.\$(PROG) M mandelbrotparams.txt image.png
 julia:
 	(export DYLD_LIBRARY_PATH=../lib; ./$(PROG) J juliaparams.txt julia.png)
 
