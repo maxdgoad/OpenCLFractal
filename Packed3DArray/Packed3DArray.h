@@ -20,6 +20,7 @@
 #define PACKED3DARRAY_H
 
 #include <iostream>
+#include <vector>
 
 namespace cryph
 {
@@ -85,7 +86,7 @@ public:
 	/** Return a pointer to the actual internal array for RW access
 	 *  @return a RW pointer to the start of the actual internal array
 	 */
-	T* getModifiableData() { return mData; }
+	std::vector<T>* getModifiableData() { return mData; }
 
 	/** Return the total number of elements in this array
 	 *  @return the total number of elements computed as the product of
@@ -115,10 +116,10 @@ private:
 
 	int		getOffset(const char* routine, int i1, int i2, int i3) const;
 
-	T*		mData;
-	int		mDim1;
-	int		mDim2;
-	int		mDim3;
+	std::vector<T>*	mData;
+	int			mDim1;
+	int			mDim2;
+	int			mDim3;
 
 	static	bool	sReportErrors;
 	static	T		sOutOfBoundsValue;
@@ -132,7 +133,7 @@ T		Packed3DArray<T>::sOutOfBoundsValue;
 
 template <typename T>
 Packed3DArray<T>::Packed3DArray(int dim1, int dim2, int dim3) :
-		mData(nullptr), mDim1(dim1), mDim2(dim2), mDim3(dim3)
+		 mDim1(dim1), mDim2(dim2), mDim3(dim3)
 {
 	if ( (dim1 < 1) || (dim2 < 1) || (dim3 < 1) )
 	{
@@ -142,7 +143,7 @@ Packed3DArray<T>::Packed3DArray(int dim1, int dim2, int dim3) :
 			     << dim1 << ", " << dim2 << ", " << dim3 << ')' << std::endl;
 	}
 	else
-		mData = new T[dim1*dim2*dim3];
+		mData = new std::vector<T>(dim1*dim2*dim3);
 }
 
 template <typename T>
@@ -158,14 +159,14 @@ Packed3DArray<T>::Packed3DArray(const Packed3DArray<T>& t3da) :
 template <typename T>
 Packed3DArray<T>::~Packed3DArray()
 {
-	if (mData != nullptr)
-	{
-		delete [] mData;
-		mData = nullptr;
-		mDim1 = 0;
-		mDim2 = 0;
-		mDim3 = 0;
-	}
+	// if (mData != nullptr)
+	// {
+	// 	delete [] mData;
+	// 	mData = nullptr;
+	// 	mDim1 = 0;
+	// 	mDim2 = 0;
+	// 	mDim3 = 0;
+	// }
 }
 
 template <typename T>
@@ -245,7 +246,7 @@ void Packed3DArray<T>::setDataElement(int i1, int i2, int i3, const T& elem)
 {
 	int loc = getOffset("setDataElement",i1,i2,i3);
 	if (loc >= 0)
-		mData[loc] = elem;
+		(*mData)[loc] = elem;
 }
 
 }

@@ -4,7 +4,8 @@
 #define PNGIMAGEWRITER_H
 
 #include <stdio.h>
-#include <png.h>
+#include <vector>
+#include "png.h"
 
 #include "Packed3DArray.h"
 
@@ -28,7 +29,7 @@ public:
 	void	addScanLine(const unsigned char* sLine);
 
 	// ....OR all at once using:
-	void	writeImage(const unsigned char* fb);
+	void	writeImage(std::vector<unsigned char>* fb);
 
 protected:
 

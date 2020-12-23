@@ -12,7 +12,7 @@
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
-#include <CL/opencl.h>
+#include "../CL/opencl.h"
 #endif
 
 #include "CLWrapper.h"
@@ -21,6 +21,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 CLWrapper wrapper;
 
@@ -116,21 +117,21 @@ bool readParams(std::string file) {
 // There is probably a better way to do this.
 // Using this function vs sending a blank realimage array to png adds about .25
 // seconds to runtime for a 7000x7000 mandelbrot which I was okay with
-unsigned char *convertfloat3toimage(cl_float3 *image, int rows, int cols,
+std::vector<unsigned char>* convertfloat3toimage(std::vector<cl_float3>& image, int rows, int cols,
                                     int numChannels) {
   numChannels = 3;
-  unsigned char *realimage = new unsigned char[rows * cols * numChannels];
+  std::vector<unsigned char>* realimage = new std::vector<unsigned char>(rows * cols * numChannels);
 
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
 
       int loc = r * cols * numChannels + c * numChannels;
 
-      realimage[loc] =
+      (*realimage)[loc] =
           static_cast<unsigned char>(image[r * (cols) + c].s[0] * 255.0 + 0.5);
-      realimage[loc + 1] =
+      (*realimage)[loc + 1] =
           static_cast<unsigned char>(image[r * (cols) + c].s[1] * 255.0 + 0.5);
-      realimage[loc + 2] =
+      (*realimage)[loc + 2] =
           static_cast<unsigned char>(image[r * (cols) + c].s[2] * 255.0 + 0.5);
     }
   }
@@ -157,23 +158,21 @@ int main(int argc, char *argv[]) {
     ImageWriter *iw = ImageWriter::create(argv[3], nCols, nRows, numChannels);
     if (iw == nullptr)
       exit(1);
-
-    cl_float3 *image; // I am using cl_float3 for my array of 3 channel pixels
+    std::vector<unsigned char>* image; // I am using cl_float3 for my array of 3 channel pixels
     if (wrapper.devIndex >= 0) {
       image = wrapper.makeFractal(nRows, nCols, realMax, realMin, imagMax,
                                   imagMin, MaxIterations, MaxLengthSquared,
                                   juliaReal, juliaImag, isJulia, COLOR_1,
                                   COLOR_2, COLOR_3); // tons of params
     }
+    
+    // std::vector<unsigned char>* realimage = convertfloat3toimage(
+    //     *image, nRows, nCols,
+    //     numChannels); // convert the float3 array to unsigned char*
 
-    unsigned char *realimage = convertfloat3toimage(
-        image, nRows, nCols,
-        numChannels); // convert the float3 array to unsigned char*
-
-    iw->writeImage(realimage);
+    iw->writeImage(image);
     iw->closeImageFile();
     delete iw;
-    delete[] image;
   }
 
   return 0;

@@ -6,8 +6,6 @@ using namespace std;
 #include "ImageWriter.h"
 
 // Known subclasses (needed by factory method "create"):
-#include "BMPImageWriter.h"
-#include "JPEGImageWriter.h"
 #include "PNGImageWriter.h"
 
 ImageWriter::ImageWriter(string fName, int xres, int yres, int numChannels) :
@@ -36,12 +34,6 @@ ImageWriter* ImageWriter::guessFileType(const std::string& fileName, int xres, i
 	if (dotLoc != std::string::npos)
 	{
 		std::string extension = fileName.substr(dotLoc+1);
-		if ((extension.compare("bmp") == 0) || (extension.compare("BMP") == 0))
-			return new BMPImageWriter(fileName, xres, yres, numChannels);
-		if ((extension.compare("jpg") == 0) || (extension.compare("JPG") == 0))
-			return new JPEGImageWriter(fileName, xres, yres, numChannels);
-		if ((extension.compare("jpeg") == 0) || (extension.compare("JPEG") == 0))
-			return new JPEGImageWriter(fileName, xres, yres, numChannels);
 		if ((extension.compare("png") == 0) || (extension.compare("PNG") == 0))
 			return new PNGImageWriter(fileName, xres, yres, numChannels);
 	}
